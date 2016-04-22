@@ -1,5 +1,4 @@
 
-
 #
 #  Scrapy's mognodb 's piple
 #
@@ -19,22 +18,17 @@ from scrapy.item import Item
 from pymongo import MongoClient
 
 
-class MongoItemMixin(object):
-    pass
-
-
-class MongoItem(Item, MongoItemMixin):
-    pass
-
 MONGO_PIPELINE_HOST  = 	'MONGO_PIPELINE_HOST'
 MONGO_PIPELINE_DBNAME = 'MONGO_PIPELINE_DBNAME'
 MONGO_PIPELINE_COLNAME_BOTPREFIX = 'MONGO_PIPELINE_COLNAME_BOTPREFIX'
 MONGO_PIPELINE_DBNAME_BOTSUFFIX = 'MONGO_PIPELINE_DBNAME_BOTSUFFIX'
+MONGO_PIPELINE_KEYS  = 'MONGO_PIPELINE_KEYS'
 
 default_settings = {
     MONGO_PIPELINE_HOST:'localhost',
     MONGO_PIPELINE_DBNAME_BOTSUFFIX: False,
-    MONGO_PIPELINE_COLNAME_BOTPREFIX : False
+    MONGO_PIPELINE_COLNAME_BOTPREFIX : False,
+    MONGO_PIPELINE_KEYS : ['key', 'url']
 }
 
 class MongoPipeline(object):
@@ -42,12 +36,12 @@ class MongoPipeline(object):
         self.settings = settings
 
         # settings from scrapy
-        self.host = self.settings.get(MONGO_PIPELINE_HOST, default_settings[MONGO_PIPELINE_HOST])
         self.bot_name = self.settings.get("BOT_NAME")
+        self.host = self.settings.get(MONGO_PIPELINE_HOST, default_settings[MONGO_PIPELINE_HOST])
+        self.keys = self.settings.get(MONGO_PIPELINE_KEYS, default_settings[MONGO_PIPELINE_KEYS])
 
         self.col_prefix = self.settings.getbool(MONGO_PIPELINE_COLNAME_BOTPREFIX, default_settings[MONGO_PIPELINE_COLNAME_BOTPREFIX])
         self.db_suffix = self.settings.getbool(MONGO_PIPELINE_DBNAME_BOTSUFFIX, default_settings[MONGO_PIPELINE_DBNAME_BOTSUFFIX])
-
         self.db_name = self.database_name()
         self.client = MongoClient(self.host)
         self.db = self.client[self.db_name]
@@ -59,12 +53,18 @@ class MongoPipeline(object):
 
     def process_item(self, item, spider):
         col = self.db[self.collection_name(item)]
-        key = item['key']
-        hit = col.find({ 'key' : key }).count() > 0
+        pending_keys = ['key', 'url']
+        key = ''
+        for name in self.keys:
+            if name in item.keys():
+                key = name
+                break
+        value = item[key]
+        hit = col.find({ key : value }).count() > 0
         if not hit:
             col.insert(dict(item))
         else:
-            col.update({'key':key}, dict(item))
+            col.update({key:value}, dict(item))
         return item
 
     def database_name(self):
