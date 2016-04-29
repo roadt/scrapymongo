@@ -64,7 +64,7 @@ class MongoPipeline(object):
         if not hit:
             col.insert(dict(item))
         else:
-            col.update({key:value}, dict(item))
+            col.update({key:value}, {'$set': dict(item)})
         return item
 
     def database_name(self):
