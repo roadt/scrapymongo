@@ -13,9 +13,14 @@
 #
 
 import datetime
+from collections import Mapping
+import logging
+
 
 from scrapy.item import Item
 from pymongo import MongoClient
+
+
 
 
 MONGO_PIPELINE_HOST  = 	'MONGO_PIPELINE_HOST'
@@ -30,6 +35,10 @@ default_settings = {
     MONGO_PIPELINE_COLNAME_BOTPREFIX : False,
     MONGO_PIPELINE_KEYS : ['key', 'url']
 }
+
+
+
+logger = logging.getLogger(__name__)
 
 class MongoPipeline(object):
     def __init__(self, settings):
@@ -52,6 +61,11 @@ class MongoPipeline(object):
         return cls(settings)
 
     def process_item(self, item, spider):
+        self.calculate_fk(item)
+        self.process_obj(item)
+        return item
+
+    def process_obj(self, item):
         col = self.db[self.collection_name(item)]
         pending_keys = ['key', 'url']
         key = ''
@@ -65,8 +79,27 @@ class MongoPipeline(object):
             col.insert(dict(item))
         else:
             col.update({key:value}, {'$set': dict(item)})
-        return item
 
+    def calculate_fk(self, item):
+        '''
+        check fk field,  match the fk value to foregin key and set   xx_id  in item 
+        '''
+        for name in item.fields:
+            field = item.fields[name]
+            if 'fk' in field and name in item: # if field is fk and item has value set
+                typename, keyname = name.split('_', 1)
+                if isinstance(field['fk'], Mapping):
+                    typename = field['fk'].get('type') or typename
+                    keyname = field['fk'].get('key') or keyname
+                col = self.db[self.collection_name(typename)] 
+                hit = col.find_one({ keyname: item[name]})
+                logger.debug("%s:%s %s" % (type(self).__name__,  'process_fk',  [name, field, typename, keyname, hit]))
+
+                if hit:
+                    item['gallery_id'] = hit['_id']
+                    #col.update({ name: item[name] }, {'$set' : { typename+'_id': hit['_id'] }} )
+                
+        
     def database_name(self):
         dbname  =  self.settings.get(MONGO_PIPELINE_DBNAME)
         if dbname is None:  # not set fixed db name use bot name.
@@ -76,7 +109,9 @@ class MongoPipeline(object):
         return dbname
 
     def collection_name(self, item):
-        colname =  item.__class__.__name__.lower()
+        if not isinstance(item, str):
+            item = item.__class__.__name__
+        colname =  item.lower()
         if self.col_prefix:
             colname = self.bot_name + "." + colname
         return colname
