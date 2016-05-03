@@ -21,8 +21,6 @@ from scrapy.item import Item
 from pymongo import MongoClient
 
 
-
-
 MONGO_PIPELINE_HOST  = 	'MONGO_PIPELINE_HOST'
 MONGO_PIPELINE_DBNAME = 'MONGO_PIPELINE_DBNAME'
 MONGO_PIPELINE_COLNAME_BOTPREFIX = 'MONGO_PIPELINE_COLNAME_BOTPREFIX'
@@ -67,12 +65,14 @@ class MongoPipeline(object):
 
     def process_obj(self, item):
         col = self.db[self.collection_name(item)]
-        pending_keys = ['key', 'url']
+        pending_keys = self.keys or  ['key', 'url'] 
         key = ''
-        for name in self.keys:
+        for name in pending_keys:
             if name in item.keys():
                 key = name
                 break
+
+        logger.debug("%s:%s %s" % (type(self).__name__,  'process_obj',  [pending_keys, key, item]))
         value = item[key]
         hit = col.find({ key : value }).count() > 0
         if not hit:
@@ -88,17 +88,18 @@ class MongoPipeline(object):
             field = item.fields[name]
             if 'fk' in field and name in item: # if field is fk and item has value set
                 typename, keyname = name.split('_', 1)
+                idf = typename+'_id'
                 if isinstance(field['fk'], Mapping):
                     typename = field['fk'].get('type') or typename
                     keyname = field['fk'].get('key') or keyname
+                    idf = field['fk'].get('idf') or typename+'_id'
                 col = self.db[self.collection_name(typename)] 
                 hit = col.find_one({ keyname: item[name]})
-                logger.debug("%s:%s %s" % (type(self).__name__,  'process_fk',  [name, field, typename, keyname, hit]))
+                logger.debug("%s:%s %s" % (type(self).__name__,  'process_fk',  [name, field, typename, keyname, hit, idf]))
 
                 if hit:
-                    item['gallery_id'] = hit['_id']
-                    #col.update({ name: item[name] }, {'$set' : { typename+'_id': hit['_id'] }} )
-                
+                    item[idf] = hit['_id']
+
         
     def database_name(self):
         dbname  =  self.settings.get(MONGO_PIPELINE_DBNAME)
