@@ -1,17 +1,25 @@
 scrapymongo
 ===========
 
-A simple mongo pipeline for scrapy framework.
+Several mongo component for scrapy framework.
 
+# Features
+	* Mongo Pipeline with Foreign key support
+	* Monog HttpCache Storage
+	
 
 # Design
 
+## MongoPipeline
   * each item type  is mapped to a collection. collection name come from class of Item.
   * each item is a record of the collection above. with new generated id. and a 'key' property, whose value is unique for every scrapped item. the item class have to ensure the value of key exists.   
   * foregin key support. in Item defind fk field, pipeline will calculate the fk_id ('type'+'_id')
 	                        Field({ 'fk' : True }) 
 							Field({'fk': {'type':'class_name','key':'key_in_type_in_the_left'}})
 
+## MongoCacheStorage
+	
+	
 # Settings options
 
 	MONGO_PIPELINE_HOST  - mongo host, defualt is 'localhost'

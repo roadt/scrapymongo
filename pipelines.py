@@ -19,40 +19,17 @@ import logging
 
 from scrapy.item import Item
 from pymongo import MongoClient
-
-
-MONGO_PIPELINE_HOST  = 	'MONGO_PIPELINE_HOST'
-MONGO_PIPELINE_DBNAME = 'MONGO_PIPELINE_DBNAME'
-MONGO_PIPELINE_COLNAME_BOTPREFIX = 'MONGO_PIPELINE_COLNAME_BOTPREFIX'
-MONGO_PIPELINE_DBNAME_BOTSUFFIX = 'MONGO_PIPELINE_DBNAME_BOTSUFFIX'
-MONGO_PIPELINE_KEYS  = 'MONGO_PIPELINE_KEYS'
-
-default_settings = {
-    MONGO_PIPELINE_HOST:'localhost',
-    MONGO_PIPELINE_DBNAME_BOTSUFFIX: False,
-    MONGO_PIPELINE_COLNAME_BOTPREFIX : False,
-    MONGO_PIPELINE_KEYS : ['key', 'url']
-}
-
+from . import Config
 
 
 logger = logging.getLogger(__name__)
-
+        
 class MongoPipeline(object):
     def __init__(self, settings):
         self.settings = settings
-
-        # settings from scrapy
-        self.bot_name = self.settings.get("BOT_NAME")
-        self.host = self.settings.get(MONGO_PIPELINE_HOST, default_settings[MONGO_PIPELINE_HOST])
-        self.keys = self.settings.get(MONGO_PIPELINE_KEYS, default_settings[MONGO_PIPELINE_KEYS])
-
-        self.col_prefix = self.settings.getbool(MONGO_PIPELINE_COLNAME_BOTPREFIX, default_settings[MONGO_PIPELINE_COLNAME_BOTPREFIX])
-        self.db_suffix = self.settings.getbool(MONGO_PIPELINE_DBNAME_BOTSUFFIX, default_settings[MONGO_PIPELINE_DBNAME_BOTSUFFIX])
-        self.db_name = self.database_name()
-        self.client = MongoClient(self.host)
-        self.db = self.client[self.db_name]
-
+        self.config = Config(self.settings)
+        self.client = MongoClient(self.config.host)
+        self.db = self.client[self.config.database_name()]
 
     @classmethod
     def from_settings(cls, settings):
@@ -65,7 +42,7 @@ class MongoPipeline(object):
 
     def process_obj(self, item):
         col = self.db[self.collection_name(item)]
-        pending_keys = self.keys or  ['key', 'url'] 
+        pending_keys = self.config.keys or  ['key', 'url'] 
         key = ''
         for name in pending_keys:
             if name in item.keys():
@@ -101,18 +78,9 @@ class MongoPipeline(object):
                     item[idf] = hit['_id']
 
         
-    def database_name(self):
-        dbname  =  self.settings.get(MONGO_PIPELINE_DBNAME)
-        if dbname is None:  # not set fixed db name use bot name.
-            dbname = self.bot_name
-        elif self.db_suffix:
-            dbname = dbname +'.' + self.bot_name
-        return dbname
 
     def collection_name(self, item):
         if not isinstance(item, str):
             item = item.__class__.__name__
-        colname =  item.lower()
-        if self.col_prefix:
-            colname = self.bot_name + "." + colname
-        return colname
+        typename =  item.lower()
+        return self.config.collection_name(typename)
