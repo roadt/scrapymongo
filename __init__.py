@@ -24,3 +24,5 @@ class Config(object):
             typename = self.bot_name + "." + typename
         return typename
 
+    def __repr__(self):
+        return "\n".join(map(lambda n :"%s:%s"%(n, getattr(self,n)),  ["bot_name", 'host', 'keys', 'col_prefix', 'db_suffix']))

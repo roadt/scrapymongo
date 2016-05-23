@@ -30,6 +30,7 @@ class MongoPipeline(object):
         self.config = Config(self.settings)
         self.client = MongoClient(self.config.host)
         self.db = self.client[self.config.database_name()]
+        logger.debug("%s:%s %s" % (type(self).__name__,  '__init__',  [self.config, self.client, self.db]))
 
     @classmethod
     def from_settings(cls, settings):
