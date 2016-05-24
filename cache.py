@@ -1,4 +1,5 @@
 import bson
+import logging
 from time import time
 from pymongo import MongoClient
 
@@ -67,3 +68,44 @@ class MongoCacheStorage(object):
         return request_fingerprint(request)
 
 
+
+
+
+from scrapy.dupefilters import BaseDupeFilter
+from scrapy.utils.request import request_fingerprint
+from . import Config
+
+class CacheDupeFilter(BaseDupeFilter):
+    """DupeFilter which can be used wth MongoCacheStorage"""
+
+    def __init__(self, settings, debug=False):
+        self.config = Config(settings)
+        self.debug = debug
+        self.logger = logging.getLogger(__name__)
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        return cls.from_settings(crawler.settings)
+
+    @classmethod
+    def from_settings(cls, settings):
+        debug = settings.getbool('DUPEFILTER_DEBUG')
+        return cls(settings, debug)
+
+    def request_seen(self, request):
+        fp = request_fingerprint(request)
+        return self.col.count({'key': fp }) > 0
+        
+    def open(self):
+        self.clt = MongoClient(self.config.host)
+        self.db = self.clt[self.config.database_name()]
+        self.col = self.db['cache']
+        self.logger.debug("%s:%s %s" % (type(self).__name__,  '__init___',  [self.config, self.clt, self.db]))
+
+    def close(self, reason):
+        """Delete data on close. Called by scrapy's scheduler"""
+        self.clt.close()
+
+    def clear(self):
+        """Clears fingerprints data"""
+        self.server.delete(self.key)
