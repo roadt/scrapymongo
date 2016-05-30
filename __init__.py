@@ -1,7 +1,8 @@
-
-
+import contextlib
+from pymongo import MongoClient
 
 class Config(object):
+    ''' config logic here '''
     def __init__(self, settings):
         self.settings = settings
         # settings from scrapy
@@ -26,3 +27,16 @@ class Config(object):
 
     def __repr__(self):
         return "\n".join(map(lambda n :"%s:%s"%(n, getattr(self,n)),  ["bot_name", 'host', 'keys', 'col_prefix', 'db_suffix']))
+
+
+@contextlib.contextmanager
+def mongodb(settings):
+    config = Config(settings)
+    clt  = MongoClient(config.host)
+    db = clt[config.database_name()]
+    try:
+        yield db
+    finally:
+        clt.close()
+
+
