@@ -46,7 +46,7 @@ class MongoPipeline(object):
         pending_keys = self.config.keys or  ['key', 'url'] 
         key = ''
         for name in pending_keys:
-            if name in item.keys():
+            if name in list(item.keys()):
                 key = name
                 break
 

@@ -26,7 +26,7 @@ class Config(object):
         return typename
 
     def __repr__(self):
-        return "\n".join(map(lambda n :"%s:%s"%(n, getattr(self,n)),  ["bot_name", 'host', 'keys', 'col_prefix', 'db_suffix']))
+        return "\n".join(["%s:%s"%(n, getattr(self,n)) for n in ["bot_name", 'host', 'keys', 'col_prefix', 'db_suffix']])
 
 
 @contextlib.contextmanager

@@ -7,12 +7,14 @@ from scrapy.responsetypes import responsetypes
 from scrapy.http import Headers
 from scrapy.utils.request import request_fingerprint
 from . import Config
+from .util import convert
 
 class MongoCacheStorage(object):
     def __init__(self, settings):
         self.settings = settings
         self.config = Config(settings)
         self.expiration_secs = settings.getint('HTTPCACHE_EXPIRATION_SECS')
+        self.logger = logging.getLogger(__name__)
 
     def open_spider(self, spider):
         self.clt = MongoClient(self.config.host)
@@ -57,15 +59,17 @@ class MongoCacheStorage(object):
                 'response_url': response.url,
                 'timestamp': time(),
             },
-            'response_headers' : response.headers,
+            'response_headers' : convert(response.headers),
             'response_body': bson.binary.Binary(response.body),
-            'request_headers' : request.headers,
+            'request_headers' : convert(request.headers),
             'request_body': bson.binary.Binary(request.body)
         }
+        #self.logger.info(request.url)
+        #self.logger.info(data)
         self.col.update({'key': key}, data, upsert=True)
 
     def _request_key(self, request):
-        return request_fingerprint(request)
+        return str(request_fingerprint(request))
 
 
 
